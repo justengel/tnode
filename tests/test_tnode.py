@@ -203,16 +203,11 @@ def test_iter():
     child5 = TNode('child5', parent=subparent1)
 
     # Test iter direct children
-    assert list(t) == [parent1, parent2]
-    assert list(parent1) == [child2, child3, subparent1]
-    assert list(subparent1) == [child4, child5]
-    assert list(parent2) == [subparent2, child1]
-    assert list(subparent2) == [child6, child7]
-    assert list(t) == list(t.iter_children())
-    assert list(parent1) == list(parent1.iter_children())
-    assert list(subparent1) == list(subparent1.iter_children())
-    assert list(parent2) == list(parent2.iter_children())
-    assert list(subparent2) == list(subparent2.iter_children())
+    assert list(t.iter_children()) == [parent1, parent2]
+    assert list(parent1.iter_children()) == [child2, child3, subparent1]
+    assert list(subparent1.iter_children()) == [child4, child5]
+    assert list(parent2.iter_children()) == [subparent2, child1]
+    assert list(subparent2.iter_children()) == [child6, child7]
 
     # Test iter all
     assert list(t.iter()) == \
@@ -241,6 +236,40 @@ def test_iter():
                     child5,
                     child6,
                     child7]
+
+    # Test __iter__
+    assert list(t) == \
+           [parent1,
+                child2,
+                child3,
+                subparent1,
+                    child4,
+                    child5,
+            parent2,
+                subparent2,
+                    child6,
+                    child7,
+                child1]
+    assert list(parent1) == \
+           [child2,
+            child3,
+            subparent1,
+                child4,
+                child5,
+               ]
+    assert list(subparent1) == \
+           [child4,
+            child5,
+            ]
+    assert list(parent2) == \
+           [subparent2,
+                child6,
+                child7,
+            child1]
+    assert list(subparent2) == \
+           [child6,
+            child7
+            ]
 
 
 def test_eq_contains_getitem_setitem():

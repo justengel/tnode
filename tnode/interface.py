@@ -208,10 +208,10 @@ class TNode(object):
             children = sub
 
     def __iter__(self):
-        return self.iter_children()
+        return self.iter()
 
     def __len__(self):
-        return len(list(self.iter_children()))
+        return len(list(self.iter()))
 
     def __bool__(self):
         return True  # This is not None. Do not return True or False based on empty children
