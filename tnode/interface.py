@@ -18,8 +18,6 @@ class TNode(object):
         cls.DELIM = delim
 
     def __init__(self, title='', *child, children=None, parent=None, **kwargs):
-        super().__init__()
-
         self._title = title
         self._parent = None
         self._children = []
