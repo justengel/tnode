@@ -401,7 +401,7 @@ def test_str():
     assert str(child7) == "TNode(full_title='parent2 > subparent2 > child7')"
 
 
-def test_asdict_fromdict():
+def test_to_dict_from_dict():
     from tnode import TNode
 
     t = TNode()
@@ -419,7 +419,7 @@ def test_asdict_fromdict():
     child4 = TNode('child4', parent=subparent1)
     child5 = TNode('child5', parent=subparent1)
 
-    assert t.asdict() == {
+    assert t.to_dict() == {
         'title': '', 'children': [
             {'title': 'parent1',
              'children': [
@@ -443,8 +443,8 @@ def test_asdict_fromdict():
             ]
         }
 
-    t2 = TNode.fromdict(t.asdict())
-    assert t2.asdict() == {
+    t2 = TNode.from_dict(t.to_dict())
+    assert t2.to_dict() == {
         'title': '', 'children': [
             {'title': 'parent1',
              'children': [
@@ -472,7 +472,7 @@ def test_asdict_fromdict():
         assert v1.full_title == v2.full_title
 
 
-def test_json_support():
+def test_json_support(remove_file=True):
     from tnode import TNode
 
     t = TNode()
@@ -492,16 +492,47 @@ def test_json_support():
 
     filename = 'test_json_support.json'
     try:
-        js = t.to_json(filename)
+        fname = t.to_json(filename)
+        assert fname == filename
         t2 = TNode.from_json(filename)
 
-        assert t.asdict() == t2.asdict()
+        assert t.to_dict() == t2.to_dict()
     finally:
         try:
-            os.remove(filename)
+            if remove_file:
+                os.remove(filename)
         except (OSError, Exception):
             pass
 
+    # Check that save/load works the same.
+    try:
+        fname = t.save(filename)
+        assert fname == filename
+        t2 = TNode.load(filename)
+
+        assert t.to_dict() == t2.to_dict()
+    finally:
+        try:
+            if remove_file:
+                os.remove(filename)
+        except (OSError, Exception):
+            pass
+
+    # Load into node
+    try:
+        fname = t.save(filename)
+        assert fname == filename
+
+        new_node = TNode(title='new node')
+        new_node.load(filename)  # Overrides attribute title! {title: ''}
+
+        assert t.to_dict() == new_node.to_dict()
+    finally:
+        try:
+            if remove_file:
+                os.remove(filename)
+        except (OSError, Exception):
+            pass
 
 if __name__ == '__main__':
     test_init_and_properties()
@@ -514,5 +545,5 @@ if __name__ == '__main__':
     test_iter()
     test_eq_contains_getitem_setitem()
     test_str()
-    test_asdict_fromdict()
+    test_to_dict_from_dict()
     test_json_support()

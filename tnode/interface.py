@@ -1,5 +1,6 @@
 import os
 import json
+from dynamicmethod import dynamicmethod
 from collections import OrderedDict
 
 
@@ -128,6 +129,8 @@ class TNode(object):
         if child not in self._children:
             self._children.append(child)
 
+        return child
+
     def remove_child(self, child):
         """Remove the given child"""
         self._children.remove(child)
@@ -137,6 +140,7 @@ class TNode(object):
                 child.parent = None
         except AttributeError:
             pass
+        return child
 
     def clear(self):
         """Clear all children."""
@@ -311,7 +315,7 @@ class TNode(object):
         """Return the data stored."""
         return None
 
-    def asdict(self):
+    def to_dict(self):
         """Return this tree as a dictionary of data."""
         tree = {'title': self.title}
 
@@ -321,26 +325,50 @@ class TNode(object):
             tree['data'] = self.get_data()
 
         for child in self.iter_children():
-            tree['children'].append(child.asdict())
+            tree['children'].append(child.to_dict())
 
         return tree
 
+    asdict = to_dict
+
     @classmethod
-    def fromdict(cls, d):
+    def from_dict(cls, d, tree=None):
+        """Create a tree from the given dictionary.
+
+        Args:
+            d (dict): Dictionary of tree items.
+            tree (TNode)[None]: Parent tree node to add items to. If None create a top level parent.
+
+        Returns:
+            tree (TNode): Tree (TNode) object that was created.
+        """
         children = d.pop('children', [])
-        node = cls(**d)
+        if tree is None:
+            tree = cls()  # self is the class and this was called as a classmethod
+
+        # Set all d items as attributes
+        for attr, val in d.items():
+            try:
+                setattr(tree, attr, val)
+            except (AttributeError, TypeError, Exception):
+                pass
 
         for child_d in children:
-            child = cls.fromdict(child_d)
-            child.parent = node
+            child = cls.from_dict(child_d)
+            child.parent = tree
 
-        return node
+        return tree
+
+    fromdict = from_dict
 
     SAVE_EXT = {}
     LOAD_EXT = {}
 
     @classmethod
     def register_saver(cls, ext, func=None):
+        if not isinstance(ext, str):
+            raise TypeError('Invalid filename extension given to register!')
+
         if func is None:
             def decorator(func):
                 return cls.register_saver(ext, func)
@@ -351,11 +379,16 @@ class TNode(object):
 
     @classmethod
     def register_loader(cls, ext, func=None):
+        if not isinstance(ext, str):
+            raise TypeError('Invalid filename extension given to register!')
+
         if func is None:
             def decorator(func):
                 return cls.register_loader(ext, func)
             return decorator
 
+        if hasattr(func, '__func__'):
+            func = func.__func__
         cls.LOAD_EXT[str(ext).lower()] = func
         return func
 
@@ -369,36 +402,45 @@ class TNode(object):
         ext = os.path.splitext(filename)[-1]
         func = self.SAVE_EXT.get(ext.lower(), None)
         if callable(func):
-            return func(tree, filename, **kwargs)
+            return func(self, filename, **kwargs)
 
         raise ValueError('Invalid filename extension given!')
 
-    @classmethod
-    def load(cls, filename, **kwargs):
+    @dynamicmethod
+    def load(self, filename, **kwargs):
         """load a tree from a file.
 
         Args:
             filename (str): Filename to read and load the tree from.
             **kwargs (object/dict): load function keyword arguments.
         """
+        cls = self
+        if isinstance(self, TNode):
+            cls = self.__class__
+
         ext = os.path.splitext(filename)[-1]
-        func = cls.LOAD_EXT.get(ext.lower(), None)
+        func = self.LOAD_EXT.get(ext.lower(), None)
         if callable(func):
-            return func(filename, **kwargs)
+            bound = func.__get__(self, cls)
+            return bound(filename, **kwargs)
 
         raise ValueError('Invalid filename extension given!')
 
     def to_json(self, filename, **kwars):
-        d = self.asdict()
+        d = self.to_dict()
         with open(filename, 'w') as file:
-            json.dump(d, file)
+            json.dump(d, file, indent=2)
         return filename
 
-    @classmethod
-    def from_json(cls, filename, **kwargs):
+    @dynamicmethod
+    def from_json(self, filename, **kwargs):
         with open(filename, 'r') as file:
             d = json.load(file)
-        return cls.fromdict(d)
+
+        kwargs = {}
+        if isinstance(self, TNode):
+            kwargs['tree'] = self
+        return self.from_dict(d, **kwargs)
 
 
 TNode.register_saver('.json', TNode.to_json)

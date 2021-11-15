@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
           # options to install extra requirements
           install_requires=[
+              'dynamicmethod>=1.1.0',
               ],
           extras_require={
               },
