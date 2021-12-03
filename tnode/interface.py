@@ -300,6 +300,9 @@ class TNode(object):
             return other == self.title or other == self.full_title
         return super(TNode, self).__eq__(other)
 
+    def __hash__(self):
+        return hash(self.full_title)
+
     def __str__(self):
         d = {'cls': self.__class__.__name__, 'full_title': self.full_title, 'title': self.title}
         return '{cls}(full_title={full_title!r})'.format(**d)
