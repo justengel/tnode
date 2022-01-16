@@ -8,11 +8,9 @@ from .interface import TNode
 __all__ = ['ParentNode', 'ChildNode']
 
 
-class ParentNode(TNode):
+class ParentChildRegistration:
     PARENT_TYPES = []
     CHILD_TYPES = []
-    SAVE_EXT = {}
-    LOAD_EXT = {}
 
     @classmethod
     def register_parent_type(cls, parent_cls):
@@ -20,9 +18,38 @@ class ParentNode(TNode):
         return parent_cls
 
     @classmethod
+    def remove_parent_type(cls, parent_cls):
+        try:
+            cls.PARENT_TYPES.remove(parent_cls)
+        except(TypeError, ValueError, Exception):
+            pass
+
+    @classmethod
+    def clear_parent_types(cls):
+        cls.CHILD_TYPES.clear()
+
+    @classmethod
     def register_child_type(cls, child_cls):
         cls.CHILD_TYPES.append(child_cls)
         return child_cls
+
+    @classmethod
+    def remove_child_type(cls, child_cls):
+        try:
+            cls.CHILD_TYPES.remove(child_cls)
+        except(TypeError, ValueError, Exception):
+            pass
+
+    @classmethod
+    def clear_child_types(cls):
+        cls.CHILD_TYPES.clear()
+
+
+class ParentNode(TNode, ParentChildRegistration):
+    PARENT_TYPES = []
+    CHILD_TYPES = []
+    SAVE_EXT = {}
+    LOAD_EXT = {}
 
     def __init__(self, title='', *child, children=None, parent=None, **kwargs):
         super(ParentNode, self).__init__(title, *child, children=children, parent=parent, **kwargs)
@@ -217,21 +244,11 @@ ParentNode.register_saver('.conf', ParentNode.to_ini)
 ParentNode.register_loader('.conf', ParentNode.from_ini)
 
 
-class ChildNode(TNode):
+class ChildNode(TNode, ParentChildRegistration):
     PARENT_TYPES = []
     CHILD_TYPES = []
     SAVE_EXT = {}
     LOAD_EXT = {}
-
-    @classmethod
-    def register_parent_type(cls, parent_cls):
-        cls.PARENT_TYPES.append(parent_cls)
-        return parent_cls
-
-    @classmethod
-    def register_child_type(cls, child_cls):
-        cls.CHILD_TYPES.append(child_cls)
-        return child_cls
 
     def __init__(self, title='', parent=None, data=None, **kwargs):
         super(ChildNode, self).__init__(title, parent=parent, data=data, **kwargs)
