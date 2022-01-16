@@ -1,5 +1,5 @@
 name = 'tnode'
-version = '1.0.5'
+version = '1.0.6'
 description = 'Tree node list utilities'
 url = 'https://github.com/justengel/tnode'
 author = 'Justin Engel'
