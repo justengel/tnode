@@ -153,6 +153,27 @@ class TNode(object):
             except (AttributeError, Exception):
                 pass
 
+    def exists(self, child):
+        """Return if the child exists."""
+        return child in self
+
+    def update(self, d=None, **kwargs):
+        """Update the values of this node."""
+        if d is None:
+            d = kwargs
+        elif not isinstance(d, dict):
+            raise TypeError('Update requires a dictionary or keyword arguments.')
+        else:
+            d.update(kwargs)
+
+        children = d.pop('children', None)
+        if children:
+            for child in children:
+                self.add_child(child)
+
+        for k, v in d.items():
+            setattr(self, k, v)
+
     def find_parent(self, full_title):
         """Find the full_title's parent and base title."""
         split = full_title.split(self.get_delimiter())
