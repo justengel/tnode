@@ -59,11 +59,11 @@ class ParentNode(TNode, ParentChildRegistration):
         if len(parent_types) == 0:
             parent_types.append(type(self))
         if parent is not None and not any(isinstance(parent, ptype) for ptype in parent_types):
-            raise TypeError('Invalid parent node type!')
+            raise TypeError('Invalid parent node type "{}"!'.format(type(parent).__name__))
 
     def validate_child(self, child):
         if not any(isinstance(child, chtype) for chtype in self.CHILD_TYPES):
-            raise TypeError('Invalid child node type!')
+            raise TypeError('Invalid child node type "{}"!'.format(type(child).__name__))
 
     def add(self, full_title, obj=None, child_type=None, **kwargs):
         """Add a child node to this parent or sub parent.
@@ -79,7 +79,8 @@ class ParentNode(TNode, ParentChildRegistration):
         if obj is not None:
             if obj.title != title:
                 obj.title = title
-            parent.add_child(obj)
+            if obj not in parent:
+                parent.add_child(obj)
         else:
             if child_type is None:
                 try:
@@ -87,10 +88,16 @@ class ParentNode(TNode, ParentChildRegistration):
                 except IndexError:
                     raise TypeError('No child types set!')
 
-            if 'title' not in kwargs:
-                kwargs['title'] = title
-            obj = child_type(**kwargs)
-            parent.add_child(obj)
+            # Get or create the child
+            try:
+                obj = parent[title]
+            except KeyError:
+                if 'title' not in kwargs:
+                    kwargs['title'] = title
+                obj = child_type(title=title)
+                parent.add_child(obj)
+
+        obj.update(**kwargs)
         return obj
 
     def add_parent(self, full_title, obj=None, parent_type=None, **kwargs):
@@ -102,7 +109,12 @@ class ParentNode(TNode, ParentChildRegistration):
             parent_type (type/class): Parent type that should be used to create the parent object. PARENT_TYPES[0]
             **kwargs (object/dict): Key word attributes to set.
         """
-        parent, title = self.find_parent(full_title)
+        try:
+            parent, title = self.find_parent(full_title)
+        except KeyError:
+            # Add parent delimiter that was not found
+            self.add_parent(full_title.rsplit(self.get_delimiter(), 2)[0], parent_type=parent_type, **kwargs)
+            parent, title = self.find_parent(full_title)
 
         if obj is not None:
             # Add the obj
@@ -255,7 +267,7 @@ class ChildNode(TNode, ParentChildRegistration):
 
     def validate_parent(self, parent):
         if parent is not None and not any(isinstance(parent, ptype) for ptype in self.PARENT_TYPES):
-            raise TypeError('Invalid parent node type!')
+            raise TypeError('Invalid parent node type "{}"!'.format(type(parent).__name__))
 
     def validate_child(self, child):
         raise TypeError('Child nodes cannot have more children!')
