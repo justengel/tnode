@@ -18,7 +18,7 @@ class TNode(object):
     def set_delimiter(cls, delim):
         cls.DELIM = delim
 
-    def __init__(self, title='', *child, children=None, parent=None, **kwargs):
+    def __init__(self, title='', *child, children=None, parent=None, data=None, **kwargs):
         self._title = title
         self._parent = None
         self._children = []
@@ -37,6 +37,8 @@ class TNode(object):
         # Add parent
         if parent is not None:
             self.parent = parent
+        if data is not None:
+            self.set_data(data)
 
     def validate_parent(self, parent):
         """Validate that this parent object is allowed to be a parent.
@@ -312,11 +314,17 @@ class TNode(object):
 
     def has_data(self):
         """Helper to return if this function has data."""
-        return False
+        return self._data is not None
 
     def get_data(self):
         """Return the data stored."""
-        return None
+        return self._data
+
+    def set_data(self, data):
+        """Set the stored data."""
+        self._data = data
+
+    data = property(get_data, set_data)
 
     def to_dict(self):
         """Return this tree as a dictionary of data."""

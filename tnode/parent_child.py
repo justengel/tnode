@@ -234,8 +234,7 @@ class ChildNode(TNode):
         return child_cls
 
     def __init__(self, title='', parent=None, data=None, **kwargs):
-        super(ChildNode, self).__init__(title, parent=parent, **kwargs)
-        self.data = data
+        super(ChildNode, self).__init__(title, parent=parent, data=data, **kwargs)
 
     def validate_parent(self, parent):
         if parent is not None and not any(isinstance(parent, ptype) for ptype in self.PARENT_TYPES):
@@ -243,20 +242,6 @@ class ChildNode(TNode):
 
     def validate_child(self, child):
         raise TypeError('Child nodes cannot have more children!')
-
-    def has_data(self):
-        """Helper to return if this function has data."""
-        return self.data is not None
-
-    def get_data(self):
-        """Return the data stored."""
-        return self._data
-
-    def set_data(self, data):
-        """Set the data stored."""
-        self._data = data
-
-    data = property(get_data, set_data)
 
     to_json = ParentNode.to_json
     from_json = ParentNode.from_json
