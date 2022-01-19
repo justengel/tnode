@@ -107,6 +107,8 @@ class TNode(object):
         tt = [self.title] + [p.title for p in self.get_parents(require_title=True)]
         return self.get_delimiter().join(reversed(tt))
 
+    key = full_title
+
     def depth(self):
         """Return the depth of this node."""
         return len(list(self.get_parents()))
@@ -174,8 +176,14 @@ class TNode(object):
         for k, v in d.items():
             setattr(self, k, v)
 
-    def find_parent(self, full_title):
+    def find_parent(self, full_title, create_missing=False):
         """Find the full_title's parent and base title."""
+        if not isinstance(full_title, str):
+            try:
+                full_title = full_title.full_title
+            except (AttributeError, Exception) as err:
+                raise TypeError('Invalid full_title given! This must be a str or TNode') from err
+
         split = full_title.split(self.get_delimiter())
         if split[0] == self.title:
             split = split[1:]
@@ -187,7 +195,10 @@ class TNode(object):
                     parent = child
                     break
             else:
-                raise KeyError('"{}" not found in {}'.format(t, parent))
+                if create_missing:
+                    parent = parent.add_child(self.__class__(t))
+                else:
+                    raise KeyError('"{}" not found in {}'.format(t, parent))
 
         return parent, split[-1]
 
@@ -287,7 +298,7 @@ class TNode(object):
             return
 
         # Get the lowest level parent
-        parent, title = self.find_parent(full_title)
+        parent, title = self.find_parent(full_title, create_missing=True)
 
         # Find if there is a child with the same title
         for i, ch in enumerate(getattr(parent, 'children', [])):
