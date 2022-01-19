@@ -1,3 +1,4 @@
+import sys
 import json
 import configparser
 from dynamicmethod import dynamicmethod
@@ -65,16 +66,17 @@ class ParentNode(TNode, ParentChildRegistration):
         if not any(isinstance(child, chtype) for chtype in self.CHILD_TYPES):
             raise TypeError('Invalid child node type "{}"!'.format(type(child).__name__))
 
-    def add(self, full_title, obj=None, child_type=None, **kwargs):
+    def add(self, full_title, obj=None, *_, child_type=None, create_missing=False, **kwargs):
         """Add a child node to this parent or sub parent.
 
         Args:
             full_title (str): Full title path to add this parent object to.
             obj (object)[None]: Child Type object to add.
             child_type (type/class): Child type that should be used to create the child object. CHILD_TYPES[0]
+            create_missing (bool)[False]: If True create the missing parents else raise an error if a parent is missing.
             **kwargs (object/dict): Key word attributes to set.
         """
-        parent, title = self.find_parent(full_title)
+        parent, title = self.find_parent(full_title, create_missing=create_missing)
 
         if obj is not None:
             if obj.title != title:
@@ -92,35 +94,30 @@ class ParentNode(TNode, ParentChildRegistration):
             try:
                 obj = parent[title]
             except KeyError:
-                if 'title' not in kwargs:
-                    kwargs['title'] = title
                 obj = child_type(title=title)
                 parent.add_child(obj)
 
         obj.update(**kwargs)
         return obj
 
-    def add_parent(self, full_title, obj=None, parent_type=None, **kwargs):
+    def add_parent(self, full_title, obj=None, *_, parent_type=None, create_missing=False, **kwargs):
         """Add a parent node to this parent or a sub parent.
 
         Args:
             full_title (str): Full title path to add this parent object to.
             obj (object)[None]: Parent Type object to add.
             parent_type (type/class): Parent type that should be used to create the parent object. PARENT_TYPES[0]
+            create_missing (bool)[False]: If True create the missing parents else raise an error if a parent is missing.
             **kwargs (object/dict): Key word attributes to set.
         """
-        try:
-            parent, title = self.find_parent(full_title)
-        except KeyError:
-            # Add parent delimiter that was not found
-            self.add_parent(full_title.rsplit(self.get_delimiter(), 2)[0], parent_type=parent_type, **kwargs)
-            parent, title = self.find_parent(full_title)
+        parent, title = self.find_parent(full_title, create_missing=create_missing)
 
         if obj is not None:
             # Add the obj
             if obj.title != title:
                 obj.title = title
-            parent.add_child(obj)
+            if obj not in parent:
+                parent.add_child(obj)
         else:
             if parent_type is None:
                 try:
@@ -128,10 +125,14 @@ class ParentNode(TNode, ParentChildRegistration):
                 except IndexError:
                     parent_type = type(parent)
 
-            if 'title' not in kwargs:
-                kwargs['title'] = title
-            obj = parent_type(**kwargs)
-            parent.add_child(obj)
+            # Get or create the child
+            try:
+                obj = parent[title]
+            except KeyError:
+                obj = parent_type(title=title)
+                parent.add_child(obj)
+
+        obj.update(kwargs)
         return obj
 
     def has_data(self):
