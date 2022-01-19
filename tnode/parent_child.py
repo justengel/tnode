@@ -208,7 +208,10 @@ class ParentNode(TNode, ParentChildRegistration):
             if isinstance(v, dict):
                 # Convert section
                 for k2, v2 in v.items():
-                    v[k2] = json.dumps(v2)
+                    try:
+                        v[k2] = json.dumps(v2)
+                    except (json.JSONDecodeError, Exception):
+                        print('Cannot save setting {}!'.format(k), file=sys.stderr)
             else:
                 d[k] = json.dumps(v)
 
