@@ -190,7 +190,7 @@ class ParentNode(TNode, ParentChildRegistration):
 
         # Add sections and their children
         for full_title, children in d.items():
-            p = tree.add_parent(full_title)
+            p = tree.add_parent(full_title, create_missing=True)
             for title, data in children.items():
                 p.add(title, data=data)
 
