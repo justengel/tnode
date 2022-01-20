@@ -352,12 +352,10 @@ def test_eq_contains_getitem_setitem():
     # subparent2 already had children
     assert t['parent2 > subparent2 > child6'] == child6
 
-    # Expect an error because subparent1 has not been added yet.
-    try:
-        t['parent1 > subparent1 > child4'] = child4
-        raise AssertionError('subparent1 not in parent1 yet!')
-    except KeyError:
-        pass
+    # Create subparent1 automatically. This is needed for loading files.
+    t['parent1 > subparent1 > child4'] = child4
+    assert 'parent1 > subparent1' in t, 'Did not automaticall create subparent1'
+    assert t['parent1 > subparent1 > child4'] == child4
 
     subparent2.clear()
     child6.title = ''
