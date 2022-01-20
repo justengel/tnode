@@ -1,10 +1,25 @@
 import os
+import contextlib
+import pathlib
 import json
 from dynamicmethod import dynamicmethod
 from collections import OrderedDict
 
 
-__all__ = ['TNode']
+__all__ = ['TNode', 'is_file_path', 'open_file']
+
+
+def is_file_path(filename):
+    return isinstance(filename, (str, bytes, pathlib.Path)) or hasattr(filename, '__fspath__')
+
+
+@contextlib.contextmanager
+def open_file(filename, *args, **kwargs):
+    try:
+        with open(filename, *args, **kwargs) as f:
+            yield f
+    except TypeError:
+        yield f  # Assume correct file wrapper type (io.TextIOWrapper)
 
 
 class TNode(object):
@@ -346,15 +361,15 @@ class TNode(object):
 
     def has_data(self):
         """Helper to return if this function has data."""
-        return self._data is not None
+        return getattr(self, '_data', None) is not None
 
     def get_data(self):
         """Return the data stored."""
-        return self._data
+        return getattr(self, '_data', None)
 
     def set_data(self, data):
         """Set the stored data."""
-        self._data = data
+        setattr(self, '_data', data)
 
     data = property(get_data, set_data)
 
@@ -407,6 +422,9 @@ class TNode(object):
     SAVE_EXT = {}
     LOAD_EXT = {}
 
+    is_file_path = staticmethod(is_file_path)
+    open_file = staticmethod(open_file)
+
     @classmethod
     def register_saver(cls, ext, func=None):
         if not isinstance(ext, str):
@@ -435,14 +453,20 @@ class TNode(object):
         cls.LOAD_EXT[str(ext).lower()] = func
         return func
 
-    def save(self, filename, **kwargs):
+    def save(self, filename, ext=None, **kwargs):
         """Save this tree to a file.
 
         Args:
-            filename (str): Filename to save this tree node to.
+            filename (str): Filename or opened file object to save this tree node to.
+            ext (str)[None]: File extension (Example: '.ini', '.json', ...). Must give if filename is file object.
             **kwargs (object/dict): Save function keyword arguments.
         """
-        ext = os.path.splitext(filename)[-1]
+        if ext is None:
+            if self.is_file_path(filename):
+                ext = os.path.splitext(str(filename))[-1]
+            else:
+                raise TypeError('Missing "ext" argument when "filename" was not a path!')
+
         func = self.SAVE_EXT.get(ext.lower(), None)
         if callable(func):
             return func(self, filename, **kwargs)
@@ -450,18 +474,24 @@ class TNode(object):
         raise ValueError('Invalid filename extension given!')
 
     @dynamicmethod
-    def load(self, filename, **kwargs):
+    def load(self, filename, ext=None, **kwargs):
         """load a tree from a file.
 
         Args:
-            filename (str): Filename to read and load the tree from.
+            filename (str/TextIoWrapper): Filename or opened file object to read and load the tree from.
+            ext (str)[None]: File extension (Example: '.ini', '.json', ...). Must give if filename is file object.
             **kwargs (object/dict): load function keyword arguments.
         """
         cls = self
         if isinstance(self, TNode):
             cls = self.__class__
 
-        ext = os.path.splitext(filename)[-1]
+        if ext is None:
+            if self.is_file_path(filename):
+                ext = os.path.splitext(str(filename))[-1]
+            else:
+                raise TypeError('Missing "ext" argument when "filename" was not a path!')
+
         func = self.LOAD_EXT.get(ext.lower(), None)
         if callable(func):
             bound = func.__get__(self, cls)
@@ -471,13 +501,15 @@ class TNode(object):
 
     def to_json(self, filename, **kwars):
         d = self.to_dict()
-        with open(filename, 'w') as file:
+
+        with self.open_file(filename, 'w') as file:
             json.dump(d, file, indent=2)
+
         return filename
 
     @dynamicmethod
     def from_json(self, filename, **kwargs):
-        with open(filename, 'r') as file:
+        with self.open_file(filename, 'r') as file:
             d = json.load(file)
 
         kwargs = {}

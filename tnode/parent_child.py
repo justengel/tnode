@@ -199,7 +199,7 @@ class ParentNode(TNode, ParentChildRegistration):
     fromdict = from_dict
 
     def to_ini(self, filename, **kwargs):
-        cfg = configparser.ConfigParser()
+        cfg = configparser.ConfigParser(allow_no_value=True, strict=False, inline_comment_prefixes=(";"))
         cfg.optionxform = str  # Make option names case-sensitive
 
         # Get dict and convert to valid string values
@@ -219,16 +219,19 @@ class ParentNode(TNode, ParentChildRegistration):
             d['DEFAULT'] = d.pop('')
         cfg.read_dict(d)
 
-        with open(filename, 'w') as f:
+        with self.open_file(filename, 'w') as f:
             cfg.write(f)
 
         return filename
 
     @dynamicmethod
     def from_ini(cls, filename, **kwargs):
-        cfg = configparser.ConfigParser()
+        cfg = configparser.ConfigParser(allow_no_value=True, strict=False, inline_comment_prefixes=(";"))
         cfg.optionxform = str  # Make option names case-sensitive
-        cfg.read(filename)
+
+        # cfg.read(filename)
+        with cls.open_file(filename, 'r') as file:
+            cfg.read_file(file)
 
         # Create a dictionary to load from
         d = OrderedDict()
