@@ -143,26 +143,36 @@ class ParentNode(TNode, ParentChildRegistration):
         """Return the data stored."""
         return None
 
-    def to_dict(self):
-        """Return this tree as a dictionary of data."""
+    def to_dict(self, exclude=None, **kwargs):
+        """Return this tree as a dictionary of data.
+
+        Args:
+            exclude (list): List of full_title's to exclude. This can also exclude a parent and everything below it.
+
+        Returns:
+            tree (OrderedDict): Dictionary of {title: {child_title: data}}
+        """
+        if exclude is None:
+            exclude = []
+
         tree = OrderedDict()
+        if self.full_title not in exclude:
+            # Check if top level has children nodes
+            top = OrderedDict()
+            for child in self.iter_children():
+                if isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
+                    top[child.full_title] = child.get_data()
+            if len(top) > 0:
+                tree[self.full_title] = top
 
-        # Check if top level has children nodes
-        top = OrderedDict()
-        for child in self.iter_children():
-            if isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
-                top[child.full_title] = child.get_data()
-        if len(top) > 0:
-            tree[self.full_title] = top
-
-        # Add all parent nodes to the top level with the full_title
-        for child in self.iter():
-            if child.full_title in top:
-                continue  # Ignore already set items
-            elif isinstance(child, tuple(self.PARENT_TYPES)):
-                tree[child.full_title] = OrderedDict()
-            elif isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
-                tree[child.parent.full_title][child.title] = child.get_data()
+            # Add all parent nodes to the top level with the full_title
+            for child in self.iter():
+                if child.full_title in top:
+                    continue  # Ignore already set items
+                elif isinstance(child, tuple(self.PARENT_TYPES)):
+                    tree[child.full_title] = OrderedDict()
+                elif isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
+                    tree[child.parent.full_title][child.title] = child.get_data()
 
         return tree
 

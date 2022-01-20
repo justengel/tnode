@@ -373,17 +373,25 @@ class TNode(object):
 
     data = property(get_data, set_data)
 
-    def to_dict(self):
-        """Return this tree as a dictionary of data."""
-        tree = {'title': self.title}
+    def to_dict(self, exclude=None, **kwargs):
+        """Return this tree as a dictionary of data.
 
-        if len(self) > 0:
-            tree['children'] = []
-        if self.has_data():
-            tree['data'] = self.get_data()
+        Args:
+            exclude (list): List of full_title's to exclude. This can also exclude a parent and everything below it.
+        """
+        if exclude is None:
+            exclude = []
 
-        for child in self.iter_children():
-            tree['children'].append(child.to_dict())
+        tree = {}
+        if self.full_title not in exclude:
+            tree = {'title': self.title}
+            if len(self) > 0:
+                tree['children'] = []
+            if self.has_data():
+                tree['data'] = self.get_data()
+
+            for child in self.iter_children():
+                tree['children'].append(child.to_dict(exclude=exclude, **kwargs))
 
         return tree
 
