@@ -5,6 +5,8 @@ import json
 from dynamicmethod import dynamicmethod
 from collections import OrderedDict
 
+from .file_utils import FileWrapper
+
 
 __all__ = ['TNode', 'is_file_path', 'open_file']
 
@@ -13,13 +15,8 @@ def is_file_path(filename):
     return isinstance(filename, (str, bytes, pathlib.Path)) or hasattr(filename, '__fspath__')
 
 
-@contextlib.contextmanager
-def open_file(filename, *args, **kwargs):
-    try:
-        with open(filename, *args, **kwargs) as f:
-            yield f
-    except TypeError:
-        yield f  # Assume correct file wrapper type (io.TextIOWrapper)
+
+open_file = FileWrapper
 
 
 class TNode(object):
