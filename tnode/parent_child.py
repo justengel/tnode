@@ -221,9 +221,18 @@ class ParentNode(TNode, ParentChildRegistration):
                     try:
                         v[k2] = json.dumps(v2)
                     except (json.JSONDecodeError, Exception):
-                        print('Cannot save setting {}!'.format(k), file=sys.stderr)
+                        try:
+                            v[k2] = str(v2)
+                        except (json.JSONDecodeError, Exception):
+                            print('Cannot save setting {}!'.format(k2), file=sys.stderr)
             else:
-                d[k] = json.dumps(v)
+                try:
+                    d[k] = json.dumps(v)
+                except (json.JSONDecodeError, Exception):
+                    try:
+                        d[k] = str(v)
+                    except (json.JSONDecodeError, Exception):
+                        print('Cannot save setting {}!'.format(k), file=sys.stderr)
 
         if '' in d:
             d['DEFAULT'] = d.pop('')
@@ -255,7 +264,13 @@ class ParentNode(TNode, ParentChildRegistration):
 
             # Add child items
             for title, value in section.items():
-                sect[title] = json.loads(value)
+                try:
+                    sect[title] = json.loads(value)
+                except (json.JSONDecodeError, Exception) as err:
+                    try:
+                        sect[title] = value
+                    except (json.JSONDecodeError, Exception):
+                        print('Cannot load setting {}!'.format(title), file=sys.stderr)
 
         # Load using from_dict. Yes, this is slower (iter 2x), but keeps consistency
         kwds = {}
