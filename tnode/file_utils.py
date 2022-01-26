@@ -28,13 +28,43 @@ class FileWrapper:
     @staticmethod
     def format_read(val, mode):
         try:
-            if not isinstance(val, str) and 'b' not in self.mode:
+            if not isinstance(val, str) and 'b' not in mode:
                 return val.decode('utf-8')
-            elif isinstance(val, str) and 'b' in self.mode:
+            elif isinstance(val, str) and 'b' in mode:
                 return val.encode('utf-8')
         except (AttributeError, TypeError, Exception):
             pass
         return val
+
+    def fileno(self):
+        """Return the integer ``file descriptor'' that is used by the underlying implementation to request I/O
+        operations from the operating system. This can be useful for other, lower level interfaces that use file
+        descriptors, such as the fcntl module or os.read() and friends. Note: File-like objects which do not have
+        a real file descriptor should not provide this method!
+        """
+        try:
+            return self.fp.fileno()
+        except (AttributeError, Exception):
+            return -1
+
+    def writable(self):
+        """Return if the file is writable."""
+        try:
+            return self.fp.writable()
+        except (AttributeError, Exception):
+            return False
+
+    def write(self, msg):
+        """Write the given bytes to the buffer or file."""
+        msg = self.format_read(msg, self.mode)
+        return self.fp.write(msg)
+
+    def readable(self):
+        """Return if the file is readable."""
+        try:
+            return self.fp.readable()
+        except (AttributeError, Exception):
+            return False
 
     def read(self, size=-1):
         """Read at most size bytes from the file (less if the read hits EOF before obtaining size bytes). If the size
@@ -45,6 +75,21 @@ class FileWrapper:
         less data than what was requested may be returned, even if no size parameter was given.
         """
         return self.format_read(self.fp.read(size), self.mode)
+
+    def readline(self, size=-1):
+        """Read one entire line from the file. A trailing newline character is kept in the string (but may be absent
+        when a file ends with an incomplete line).2.11 If the size argument is present and non-negative, it is a
+        maximum byte count (including the trailing newline) and an incomplete line may be returned. An empty string
+        is returned only when EOF is encountered immediately. Note: Unlike stdio's fgets(), the returned string
+        contains null characters ('\0') if they occurred in the input.
+        """
+        try:
+            return self.format_read(self.fp.readline(size), self.mode)
+        except (AttributeError, Exception):
+            if 'b' in self.mode:
+                return b''
+            else:
+                return ''
 
     def __next__(self):
         try:
@@ -69,3 +114,6 @@ class FileWrapper:
         except (AttributeError, TypeError, ValueError, Exception):
             pass
         return exc_type is None
+
+    def __getattr__(self, item):
+        return getattr(self.fp, item)
