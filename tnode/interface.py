@@ -22,13 +22,13 @@ open_file = FileWrapper
 class TNode(object):
     DELIM = ' > '
 
-    @classmethod
-    def get_delimiter(cls):
-        return cls.DELIM
+    @dynamicmethod
+    def get_delimiter(cls_self):
+        return cls_self.DELIM
 
-    @classmethod
-    def set_delimiter(cls, delim):
-        cls.DELIM = delim
+    @dynamicmethod
+    def set_delimiter(cls_self, delim):
+        cls_self.DELIM = delim
 
     def __init__(self, title='', *child, children=None, parent=None, data=None, **kwargs):
         self._title = title
