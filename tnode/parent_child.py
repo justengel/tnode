@@ -254,6 +254,7 @@ class ParentNode(TNode, ParentChildRegistration):
 
         # Create a dictionary to load from
         d = OrderedDict()
+
         # Note cfg._sections works while cfg.items() does not!
         for full_title, section in [('DEFAULT', cfg.defaults())] + list(cfg._sections.items()):
             sect = OrderedDict()
@@ -264,13 +265,7 @@ class ParentNode(TNode, ParentChildRegistration):
 
             # Add child items
             for title, value in section.items():
-                try:
-                    sect[title] = json.loads(value)
-                except (json.JSONDecodeError, Exception) as err:
-                    try:
-                        sect[title] = value
-                    except (json.JSONDecodeError, Exception):
-                        print('Cannot load setting {}!'.format(title), file=sys.stderr)
+                sect[title] = cls.deserialize(value)
 
         # Load using from_dict. Yes, this is slower (iter 2x), but keeps consistency
         kwds = {}

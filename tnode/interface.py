@@ -1,5 +1,6 @@
 import os
-import contextlib
+import sys
+import traceback
 import pathlib
 import json
 from dynamicmethod import dynamicmethod
@@ -11,9 +12,17 @@ from .file_utils import FileWrapper
 __all__ = ['TNode', 'is_file_path', 'open_file']
 
 
+def get_traceback(exc=None):
+    """Get the exception traceback or the system traceback."""
+    _, _, sys_tb = sys.exc_info()  # Must call this before another exception is raised.
+    try:
+        return exc.__traceback__
+    except (AttributeError, Exception):
+        return sys_tb
+
+
 def is_file_path(filename):
     return isinstance(filename, (str, bytes, pathlib.Path)) or hasattr(filename, '__fspath__')
-
 
 
 open_file = FileWrapper
@@ -423,6 +432,56 @@ class TNode(object):
         return tree
 
     fromdict = from_dict
+
+    @classmethod
+    def serialize(cls, value):
+        """Convert a value to a string or bytes value that can be saved and loaded."""
+        try:
+            return json.dumps(value)
+        except (json.JSONDecodeError, Exception) as err:
+            try:
+                return str(value)
+            except (json.JSONDecodeError, Exception):
+                cls.print_exception(err, msg='Cannot serialize value "{}"!'.format(value))
+
+    @classmethod
+    def deserialize(cls, value):
+        """Convert a string or bytes value to a Python object."""
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, Exception) as err:
+            try:
+                return value
+            except (json.JSONDecodeError, Exception):
+                cls.print_exception(err, msg='Cannot deserialize value "{}"!'.format(value))
+
+    @staticmethod
+    def print_exception(exc, msg=None, error_cls=None):
+        """Print the given exception. If a message is given it will be prepended to the exception message with a \n.
+
+        Args:
+            exc (Exception): Exception that was raised.
+            msg (str)[None]: Additional message to prepend to the exception.
+            error_cls (Exception)[None]: New Exception class to print the exception as.
+        """
+        if error_cls is None:
+            if isinstance(exc, BaseException):
+                error_cls = BaseException
+            else:
+                error_cls = ValueError
+
+        # Prepend the message to the exception if given
+        if msg:
+            msg = "\n".join((msg, str(exc)))
+        else:
+            msg = str(exc)
+
+        exc_tb = get_traceback(exc)
+        try:
+            new_err = error_cls(msg)  # Error class does not accept a string message argument
+        except (TypeError, ValueError, Exception):
+            new_err = ValueError(msg)
+        traceback.print_exception(error_cls, new_err, exc_tb)
 
     SAVE_EXT = {}
     LOAD_EXT = {}
