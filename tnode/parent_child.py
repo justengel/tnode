@@ -180,10 +180,10 @@ class ParentNode(TNode, ParentChildRegistration):
 
         for child_d in children:
             if 'data' not in child_d:
-                p = tree.add_parent(child_d.pop('title', ''))
+                p = tree.add_parent(child_d.pop('title', ''), create_missing=True)
                 p.from_dict(child_d, tree=p, **kwargs)
             else:
-                c = tree.add(child_d.pop('title', ''))
+                c = tree.add(child_d.pop('title', ''), create_missing=True)
                 c.from_dict(child_d, tree=c, **kwargs)
 
         return tree
@@ -258,7 +258,7 @@ class ParentNode(TNode, ParentChildRegistration):
         d = self.to_dict()
 
         # Flatten dict
-        d = self.to_ini_dict(d, self.full_title, self.get_delimiter(), include_empty_parents=include_empty_parents)
+        d = self.to_ini_dict(d, '', self.get_delimiter(), include_empty_parents=include_empty_parents)
         for g_name, group in d.items():
             for k, v in group.items():
                 group[k] = self.serialize(v)
