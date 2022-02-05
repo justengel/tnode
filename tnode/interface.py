@@ -4,7 +4,6 @@ import traceback
 import pathlib
 import json
 from dynamicmethod import dynamicmethod
-from collections import OrderedDict
 
 from .file_utils import FileWrapper
 
@@ -221,7 +220,10 @@ class TNode(object):
                 else:
                     raise KeyError('"{}" not found in {}'.format(t, parent))
 
-        return parent, split[-1]
+        try:
+            return parent, split[-1]
+        except IndexError:
+            return parent, ''
 
     def find(self, full_title):
         """Find and return the child that may be several levels deep."""
@@ -384,6 +386,9 @@ class TNode(object):
 
         Args:
             exclude (list): List of full_title's to exclude. This can also exclude a parent and everything below it.
+
+        Returns:
+            tree (dict): Ex {'title': title, 'data': data if data, 'children': [{'title': title, 'data': data}]}
         """
         if exclude is None:
             exclude = []
@@ -391,24 +396,34 @@ class TNode(object):
         tree = {}
         if self.full_title not in exclude:
             tree = {'title': self.title}
-            if len(self) > 0:
-                tree['children'] = []
+
+            children = []  # detached
             if self.has_data():
                 tree['data'] = self.get_data()
+            elif len(self) > 0:
+                children = tree['children'] = []  # Only attach if children
 
+            subparents = []
             for child in self.iter_children():
-                tree['children'].append(child.to_dict(exclude=exclude, **kwargs))
+                if child.has_data():
+                    children.append(child.to_dict(exclude=exclude, **kwargs))
+                else:
+                    subparents.append(child.to_dict(exclude=exclude, **kwargs))
+
+            # Add parents after children
+            children.extend(subparents)
 
         return tree
 
     asdict = to_dict
 
     @classmethod
-    def from_dict(cls, d, tree=None):
+    def from_dict(cls, d, tree=None, **kwargs):
         """Create a tree from the given dictionary.
 
         Args:
             d (dict): Dictionary of tree items.
+                Example: {'title': title, 'data': data if data, 'children': [{'title': title, 'data': data}]}
             tree (TNode)[None]: Parent tree node to add items to. If None create a top level parent.
 
         Returns:
@@ -426,7 +441,7 @@ class TNode(object):
                 pass
 
         for child_d in children:
-            child = cls.from_dict(child_d)
+            child = cls.from_dict(child_d, **kwargs)
             child.parent = tree
 
         return tree

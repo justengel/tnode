@@ -1,9 +1,13 @@
-import sys
-import json
 import configparser
 from dynamicmethod import dynamicmethod
 from collections import OrderedDict
 from .interface import TNode
+
+try:
+    from dataclasses import MISSING
+except (ImportError, Exception):
+    class MISSING(object):
+        pass
 
 
 __all__ = ['ParentNode', 'ChildNode']
@@ -143,96 +147,121 @@ class ParentNode(TNode, ParentChildRegistration):
         """Return the data stored."""
         return None
 
-    def to_dict(self, exclude=None, **kwargs):
-        """Return this tree as a dictionary of data.
+    def set_data(self, data):
+        raise AttributeError("Parent objects cannot have data!")
 
-        Args:
-            exclude (list): List of full_title's to exclude. This can also exclude a parent and everything below it.
-
-        Returns:
-            tree (OrderedDict): Dictionary of {title: {child_title: data}}
-        """
-        if exclude is None:
-            exclude = []
-
-        tree = OrderedDict()
-        if self.full_title not in exclude:
-            # Check if top level has children nodes
-            top = OrderedDict()
-            for child in self.iter_children():
-                if isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
-                    top[child.full_title] = child.get_data()
-            if len(top) > 0:
-                tree[self.full_title] = top
-
-            # Add all parent nodes to the top level with the full_title
-            for child in self.iter():
-                if child.full_title in top:
-                    continue  # Ignore already set items
-                elif isinstance(child, tuple(self.PARENT_TYPES)):
-                    tree[child.full_title] = OrderedDict()
-                elif isinstance(child, tuple(self.CHILD_TYPES)) and child.has_data():
-                    tree[child.parent.full_title][child.title] = child.get_data()
-
-        return tree
-
-    asdict = to_dict
+    data = property(get_data, set_data)
 
     @classmethod
-    def from_dict(cls, d, tree=None):
+    def from_dict(cls, d, tree=None, **kwargs):
         """Create a tree from the given dictionary.
 
         Args:
             d (dict): Dictionary of tree items.
+                Example: {'title': title, 'data': data, 'children': [{'title': title, 'data': data}]}
             tree (TNode)[None]: Parent tree node to add items to. If None create a top level parent.
 
         Returns:
             tree (TNode): Tree (TNode) object that was created.
         """
+        children = d.pop('children', [])
+        title = d.pop('title', '')
         if tree is None:
-            tree = cls()  # self is the class and this was called as a classmethod
+            tree = cls(title=title)
+        elif not tree.title and title:
+            tree.title = title
 
-        # Set the default items as direct children of the top level node
-        if '' in d or 'DEFAULT' in d:
-            children = d.pop('', d.pop('DEFAULT', {}))
-            for title, data in children.items():
-                tree.add(title, data=data)
+        # Set all d items as attributes
+        for attr, val in d.items():
+            try:
+                setattr(tree, attr, val)
+            except (AttributeError, TypeError, Exception):
+                pass
 
-        # Add sections and their children
-        for full_title, children in d.items():
-            p = tree.add_parent(full_title, create_missing=True)
-            for title, data in children.items():
-                p.add(title, data=data)
+        for child_d in children:
+            if 'data' not in child_d:
+                p = tree.add_parent(child_d.pop('title', ''))
+                p.from_dict(child_d, tree=p, **kwargs)
+            else:
+                c = tree.add(child_d.pop('title', ''))
+                c.from_dict(child_d, tree=c, **kwargs)
 
         return tree
 
     fromdict = from_dict
 
-    def to_ini(self, filename, **kwargs):
+    def to_ini_dict(self, d, parent_key='', delimiter=None, tree=None, include_empty_parents=True, **kwargs):
+        """Convert a nested dictionary of {'title': title, 'data': data, 'children': [{'title': title, 'data': data}]}
+        to an simple init dict {'section': {'title': value, 'title2': value}, 'sub section': {'title': value}}
+
+        Args:
+            d (OrderedDict/dict): Dictionary {'title': title, 'children': [{'title': title, 'data': data}]}
+            parent_key (str)['']: This dictionary's parent key.
+            delimiter (str)[None]: Parent key separator
+            tree (dict)[None]: Dictionary to stuff items into.
+            include_empty_parents (bool)[True]: If True add parents that have no data or children.
+
+        Returns:
+            tree (OrderedDict): Ini dict {'section': {'title': value, 'title2': value}, 'sub section': {'title': value}}
+        """
+        if tree is None:
+            tree = OrderedDict()
+        if delimiter is None:
+            delimiter = self.get_delimiter()
+
+        key = title = d.pop('title', '')
+        if parent_key:
+            key = parent_key + delimiter + title
+
+        children = d.pop('children', [])
+        data = d.pop('data', MISSING)
+
+        if data is not MISSING:
+            try:
+                tree[parent_key][title] = data
+            except (KeyError, Exception):
+                tree[parent_key] = OrderedDict([(title, data)])
+        elif children:
+            for child in children:
+                self.to_ini_dict(child, key, delimiter, tree, include_empty_parents=include_empty_parents, **kwargs)
+        elif include_empty_parents:
+            tree[key] = OrderedDict()
+
+        return tree
+
+    @classmethod
+    def from_ini_dict(cls, d):
+        """Convert an ini dict to the standard dict format."""
+        tree = OrderedDict([('title', ''), ('children', [])])
+
+        # If default ('') add children to top level
+        if '' in d:
+            section = d.pop('')
+            for title, value in section.items():
+                tree['children'].append(OrderedDict([('title', title), ('data', value)]))
+
+        # Add subsections
+        for name, section in d.items():
+            sect = OrderedDict([('title', name), ('children', [])])
+            tree['children'].append(sect)
+
+            for title, value in section.items():
+                sect['children'].append(OrderedDict([('title', title), ('data', value)]))
+
+        return tree
+
+    def to_ini(self, filename, include_empty_parents=True, **kwargs):
         cfg = configparser.ConfigParser(allow_no_value=True, strict=False, inline_comment_prefixes=(";"))
         cfg.optionxform = str  # Make option names case-sensitive
 
         # Get dict and convert to valid string values
         d = self.to_dict()
-        for k, v in d.items():
-            if isinstance(v, dict):
-                # Convert section
-                for k2, v2 in v.items():
-                    try:
-                        v[k2] = json.dumps(v2)
-                    except (json.JSONDecodeError, Exception):
-                        try:
-                            v[k2] = str(v2)
-                        except (json.JSONDecodeError, Exception):
-                            print('Cannot save setting {}!'.format(k2), file=sys.stderr)
-            else:
-                try:
-                    d[k] = json.dumps(v)
-                except (json.JSONDecodeError, Exception):
-                    try:
-                        d[k] = str(v)
-                    except (json.JSONDecodeError, Exception):
-                        print('Cannot save setting {}!'.format(k), file=sys.stderr)
+
+        # Flatten dict
+        d = self.to_ini_dict(d, self.full_title, self.get_delimiter(), include_empty_parents=include_empty_parents)
+        for g_name, group in d.items():
+            for k, v in group.items():
+                group[k] = self.serialize(v)
 
         if '' in d:
             d['DEFAULT'] = d.pop('')
@@ -271,7 +300,7 @@ class ParentNode(TNode, ParentChildRegistration):
         kwds = {}
         if isinstance(cls, TNode):
             kwds['tree'] = cls
-        return cls.from_dict(d, **kwds)
+        return cls.from_dict(cls.from_ini_dict(d), **kwds)
 
 
 # Register save/load for this class

@@ -51,6 +51,7 @@ def test_json(remove_file=True):
     child1 = top.add('child1', data=1)
     child2 = top.add('parent1 > child2', data=2)
     child3 = top.add('parent1 > subparent1 > child3', data=3)
+    child4 = top.add('parent1 > subparent1 > child4', data={'abc': 123})
 
     filename = 'test_json_parent_child.json'
     try:
@@ -119,6 +120,7 @@ def test_ini(remove_file=True):
     child1 = top.add('child1', data=1)
     child2 = top.add('parent1 > child2', data=2)
     child3 = top.add('parent1 > subparent1 > child3', data=3)
+    child4 = top.add('parent1 > subparent1 > child4', data={'abc': 123})
 
     filename = 'test_json_parent_child.ini'
     try:
