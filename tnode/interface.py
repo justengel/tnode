@@ -327,11 +327,6 @@ class TNode(object):
         for i, ch in enumerate(getattr(parent, 'children', [])):
             if getattr(ch, 'title', None) == title:
                 try:
-                    if title != child.title:
-                        child.title = title
-                except (AttributeError, Exception):
-                    pass
-                try:
                     parent[i] = child  # This is a questionable way to set the child to the parent at the index.
                 except (TypeError, Exception):
                     pass
